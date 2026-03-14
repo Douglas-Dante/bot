@@ -9,6 +9,8 @@ jobs:
   bot:
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    env:
+      PYTHONUNBUFFERED: "1"
 
     steps:
       - name: Checkout do repositório
@@ -23,10 +25,44 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
-
-      - name: Instalar dependências e rodar o bot
-        run: |
-          pip install selenium chromedriver-autoinstaller
           google-chrome --version
-          python -c "import chromedriver_autoinstaller; path = chromedriver_autoinstaller.install(); print('ChromeDriver em:', path)"
-          python novo.py
+
+      - name: Instalar dependências
+        run: pip install selenium chromedriver-autoinstaller
+
+      - name: Testar Chrome isolado
+        run: |
+          python - <<'PYEOF'
+          import chromedriver_autoinstaller
+          from selenium import webdriver
+          from selenium.webdriver.chrome.service import Service
+
+          chromedriver_path = chromedriver_autoinstaller.install()
+          print(f"ChromeDriver: {chromedriver_path}")
+
+          options = webdriver.ChromeOptions()
+          options.add_argument("--headless=new")
+          options.add_argument("--no-sandbox")
+          options.add_argument("--disable-dev-shm-usage")
+          options.add_argument("--disable-gpu")
+          options.add_argument("--disable-extensions")
+          options.add_argument("--window-size=1920,1080")
+
+          # SEM chrome_session para testar se o Chrome abre sozinho
+          service = Service(chromedriver_path, log_output="/tmp/chromedriver.log")
+          try:
+              driver = webdriver.Chrome(service=service, options=options)
+              driver.get("https://www.google.com")
+              print(f"[OK] Chrome abriu! Título: {driver.title}")
+              driver.quit()
+          except Exception as e:
+              print(f"[ERRO] {e}")
+              import os
+              if os.path.exists("/tmp/chromedriver.log"):
+                  print("=== ChromeDriver log ===")
+                  with open("/tmp/chromedriver.log") as f:
+                      print(f.read()[-3000:])
+          PYEOF
+
+      - name: Rodar o bot
+        run: python -u novo.py
