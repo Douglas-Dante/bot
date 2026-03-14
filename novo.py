@@ -87,14 +87,28 @@ def exibir_qrcode_terminal(driver):
         print("  ESCANEIE O QR CODE ABAIXO COM O WHATSAPP DO SEU CELULAR")
         print("=" * 60)
 
-        # Gera e exibe o QR Code no terminal
-        qr = qrcode.QRCode(border=1)
+        # Gera e exibe o QR Code no terminal com tamanho reduzido
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=1,
+            border=1,
+        )
         qr.add_data(qr_data)
         qr.make(fit=True)
-        qr.print_ascii(invert=True)
 
-        print("=" * 60)
-        print("[INFO] Aguardando escaneamento (máx. 60 segundos)...")
+        # Exibe linha por linha para não cortar no log
+        print("\n" + "=" * 50)
+        print("  ESCANEIE COM O WHATSAPP — abra o app → 3 pontos → Aparelhos conectados → Conectar")
+        print("=" * 50)
+        matrix = qr.get_matrix()
+        for row in matrix:
+            linha = ""
+            for cell in row:
+                linha += "██" if cell else "  "
+            print(linha)
+        print("=" * 50)
+        print("[INFO] Aguardando escaneamento (máx. 120 segundos)...")
         return True
 
     except Exception as e:
@@ -128,7 +142,7 @@ def abrir_whatsapp(driver):
 
     # Aguarda o login após escaneamento
     try:
-        WebDriverWait(driver, 60).until(
+        WebDriverWait(driver, 120).until(
             EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
         )
         print("[✓] Login realizado com sucesso!")
@@ -137,7 +151,7 @@ def abrir_whatsapp(driver):
         print("[AVISO] QR Code expirou, gerando novo...")
         time.sleep(2)
         exibir_qrcode_terminal(driver)
-        WebDriverWait(driver, 60).until(
+        WebDriverWait(driver, 120).until(
             EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
         )
         print("[✓] Login realizado com sucesso!")
