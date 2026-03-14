@@ -1,6 +1,7 @@
 import time
 import os
 import sys
+import chromedriver_autoinstaller
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -16,8 +17,6 @@ NOME_GRUPO = "FLASH DELIVERY JIPA 2"
 ARQUIVO_CONTATOS = "contatos.txt"
 PASTA_SESSAO = os.path.join(os.path.dirname(__file__), "chrome_session")
 
-# Detecta modo: python bot.py --login  → abre com interface para escanear QR
-#               python bot.py          → roda headless (GitHub Actions)
 MODO_LOGIN = "--login" in sys.argv
 
 # ─────────────────────────────────────────
@@ -36,6 +35,8 @@ def carregar_contatos():
 # INICIA CHROME
 # ─────────────────────────────────────────
 def iniciar_driver():
+    chromedriver_autoinstaller.install()  # instala ChromeDriver compatível com o Chrome instalado
+
     options = webdriver.ChromeOptions()
     options.add_argument(f"--user-data-dir={PASTA_SESSAO}")
     options.add_argument("--profile-directory=Default")
@@ -50,13 +51,12 @@ def iniciar_driver():
     options.add_argument("--silent")
 
     if not MODO_LOGIN:
-        # Headless: sem interface gráfica (GitHub Actions)
         options.add_argument("--headless=new")
         print("[INFO] Modo headless ativado (sem interface gráfica)")
     else:
         print("[INFO] Modo login ativado (com interface gráfica para QR Code)")
 
-    driver = webdriver.Chrome(options=options)
+    driver = webdriver.Chrome(options=options)  # autoinstaller cuida do ChromeDriver
     return driver
 
 # ─────────────────────────────────────────
@@ -67,7 +67,6 @@ def abrir_whatsapp(driver):
     print("[INFO] Aguardando carregamento do WhatsApp Web...")
 
     if MODO_LOGIN:
-        # Modo login: espera o usuário escanear o QR Code
         print("[INFO] Escaneie o QR Code com seu celular...")
         print("[INFO] Aguardando login (máx. 120 segundos)...")
         try:
@@ -78,11 +77,10 @@ def abrir_whatsapp(driver):
             print("[✓] Agora você pode rodar sem --login no GitHub Actions.")
             time.sleep(3)
         except TimeoutException:
-            print("[ERRO] Tempo esgotado. Tente novamente com: python bot.py --login")
+            print("[ERRO] Tempo esgotado. Tente novamente com: python novo.py --login")
             driver.quit()
             sys.exit(1)
     else:
-        # Modo headless: sessão já deve estar salva
         try:
             WebDriverWait(driver, 30).until(
                 EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
@@ -90,7 +88,7 @@ def abrir_whatsapp(driver):
             print("[INFO] WhatsApp Web carregado com sessão salva!")
         except TimeoutException:
             print("[ERRO] Sessão expirada ou não encontrada.")
-            print("[ERRO] Rode localmente primeiro: python bot.py --login")
+            print("[ERRO] Rode localmente primeiro: python novo.py --login")
             driver.quit()
             sys.exit(1)
 
@@ -223,7 +221,6 @@ def main():
     driver = iniciar_driver()
     abrir_whatsapp(driver)
 
-    # No modo login só precisava salvar a sessão, encerra aqui
     if MODO_LOGIN:
         print("[✓] Sessão salva! Feche esta janela e suba chrome_session/ para o GitHub.")
         driver.quit()
