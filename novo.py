@@ -40,67 +40,107 @@ def iniciar_driver():
     print(f"[INFO] ChromeDriver: {chromedriver_path}")
 
     options = webdriver.ChromeOptions()
-
-    # Flags obrigatórias para rodar no Linux/GitHub Actions
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.add_argument("--disable-software-rasterizer")
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-notifications")
     options.add_argument("--window-size=1920,1080")
-    options.add_argument("--remote-debugging-port=9222")
 
-    if not MODO_LOGIN:
-        options.add_argument("--headless=new")
-        # Sessão salva — só usa se a pasta existir
-        if os.path.exists(PASTA_SESSAO):
-            options.add_argument(f"--user-data-dir={PASTA_SESSAO}")
-            options.add_argument("--profile-directory=Default")
-            print(f"[INFO] Usando sessão salva em: {PASTA_SESSAO}")
-        else:
-            print("[AVISO] Pasta chrome_session/ não encontrada — rodando sem sessão salva.")
-        print("[INFO] Modo headless ativado (sem interface gráfica)")
-    else:
-        options.add_argument(f"--user-data-dir={PASTA_SESSAO}")
-        options.add_argument("--profile-directory=Default")
-        print("[INFO] Modo login ativado (com interface gráfica para QR Code)")
+    # Sempre headless no GitHub Actions
+    options.add_argument("--headless=new")
+    print("[INFO] Modo headless ativado")
 
     service = Service(chromedriver_path)
     driver = webdriver.Chrome(service=service, options=options)
     return driver
 
 # ─────────────────────────────────────────
+# EXIBE QR CODE NO TERMINAL
+# ─────────────────────────────────────────
+def exibir_qrcode_terminal(driver):
+    try:
+        # Instala qrcode se necessário
+        try:
+            import qrcode
+        except ImportError:
+            import subprocess
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "qrcode[pil]", "-q"])
+            import qrcode
+
+        print("[INFO] Aguardando QR Code aparecer na página...")
+
+        # Aguarda o canvas do QR Code aparecer
+        WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.XPATH, '//div[@data-ref]'))
+        )
+
+        # Pega o valor do data-ref (string do QR Code)
+        qr_element = driver.find_element(By.XPATH, '//div[@data-ref]')
+        qr_data = qr_element.get_attribute("data-ref")
+
+        if not qr_data:
+            print("[ERRO] Não foi possível extrair o QR Code.")
+            return False
+
+        print("\n" + "=" * 60)
+        print("  ESCANEIE O QR CODE ABAIXO COM O WHATSAPP DO SEU CELULAR")
+        print("=" * 60)
+
+        # Gera e exibe o QR Code no terminal
+        qr = qrcode.QRCode(border=1)
+        qr.add_data(qr_data)
+        qr.make(fit=True)
+        qr.print_ascii(invert=True)
+
+        print("=" * 60)
+        print("[INFO] Aguardando escaneamento (máx. 60 segundos)...")
+        return True
+
+    except Exception as e:
+        print(f"[ERRO] ao exibir QR Code: {e}")
+        return False
+
+# ─────────────────────────────────────────
 # ABRE O WHATSAPP WEB E AGUARDA LOGIN
 # ─────────────────────────────────────────
 def abrir_whatsapp(driver):
     driver.get("https://web.whatsapp.com")
-    print("[INFO] Aguardando carregamento do WhatsApp Web...")
+    print("[INFO] Carregando WhatsApp Web...")
+    time.sleep(5)
 
-    if MODO_LOGIN:
-        print("[INFO] Escaneie o QR Code com seu celular...")
-        print("[INFO] Aguardando login (máx. 120 segundos)...")
-        try:
-            WebDriverWait(driver, 120).until(
-                EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
-            )
-            print("[✓] Login realizado! Sessão salva em 'chrome_session/'")
-            time.sleep(3)
-        except TimeoutException:
-            print("[ERRO] Tempo esgotado. Tente novamente com: python novo.py --login")
-            driver.quit()
-            sys.exit(1)
-    else:
-        try:
-            WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
-            )
-            print("[INFO] WhatsApp Web carregado com sessão salva!")
-        except TimeoutException:
-            print("[ERRO] Sessão expirada ou não encontrada.")
-            print("[ERRO] Rode localmente primeiro: python novo.py --login")
-            driver.quit()
-            sys.exit(1)
+    # Verifica se já está logado
+    try:
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
+        )
+        print("[INFO] WhatsApp Web carregado — sessão ativa!")
+        return
+    except TimeoutException:
+        pass
+
+    # Não está logado — exibe QR Code no terminal
+    print("[INFO] Sessão não encontrada. Exibindo QR Code no terminal...")
+    if not exibir_qrcode_terminal(driver):
+        print("[ERRO] Não foi possível exibir o QR Code.")
+        driver.quit()
+        sys.exit(1)
+
+    # Aguarda o login após escaneamento
+    try:
+        WebDriverWait(driver, 60).until(
+            EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
+        )
+        print("[✓] Login realizado com sucesso!")
+    except TimeoutException:
+        # QR Code expirou — tenta novamente
+        print("[AVISO] QR Code expirou, gerando novo...")
+        time.sleep(2)
+        exibir_qrcode_terminal(driver)
+        WebDriverWait(driver, 60).until(
+            EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
+        )
+        print("[✓] Login realizado com sucesso!")
 
 # ─────────────────────────────────────────
 # ABRE O GRUPO
@@ -138,7 +178,6 @@ def aguardar_nova_mensagem(driver, contatos, ultima_id):
             mensagens = driver.find_elements(By.XPATH, '//div[contains(@class,"message-in")]')
             if mensagens:
                 ultima = mensagens[-1]
-
                 try:
                     remetente = ultima.find_element(
                         By.XPATH, './/span[contains(@class,"_ahxt")]'
@@ -212,23 +251,13 @@ def responder_com_reply(driver, elemento_mensagem):
 # LOOP PRINCIPAL
 # ─────────────────────────────────────────
 def main():
-    if MODO_LOGIN:
-        print("=" * 50)
-        print("  MODO LOGIN — abra o celular e escaneie o QR")
-        print("=" * 50)
-
     contatos = carregar_contatos()
-    if not contatos and not MODO_LOGIN:
+    if not contatos:
         print("[ERRO] Nenhum contato para monitorar.")
         return
 
     driver = iniciar_driver()
     abrir_whatsapp(driver)
-
-    if MODO_LOGIN:
-        print("[✓] Sessão salva! Suba chrome_session/ para o GitHub.")
-        driver.quit()
-        return
 
     if not abrir_grupo(driver, NOME_GRUPO):
         driver.quit()
