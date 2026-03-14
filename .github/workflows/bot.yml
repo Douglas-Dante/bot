@@ -22,8 +22,21 @@ jobs:
       - name: Instalar dependências Python
         run: pip install selenium webdriver-manager
 
-      - name: Instalar Google Chrome
-        uses: browser-actions/setup-chrome@v1
+      - name: Instalar Google Chrome estável
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Instalar ChromeDriver compatível
+        run: |
+          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
+          echo "Chrome version: $CHROME_VERSION"
+          pip install chromedriver-autoinstaller
+          python -c "import chromedriver_autoinstaller; chromedriver_autoinstaller.install()"
 
       - name: Rodar o bot
         run: python novo.py
