@@ -1,7 +1,6 @@
 import time
 import os
 import sys
-import json
 import chromedriver_autoinstaller
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -17,7 +16,7 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException
 # ─────────────────────────────────────────
 NOME_GRUPO = "FLASH DELIVERY JIPA 2"
 ARQUIVO_CONTATOS = "contatos.txt"
-ARQUIVO_COOKIES = "wa_cookies.json"
+PASTA_SESSAO = os.path.join(os.path.dirname(__file__), "chrome_session")
 
 # ─────────────────────────────────────────
 # CARREGA CONTATOS MONITORADOS
@@ -32,7 +31,7 @@ def carregar_contatos():
     return contatos
 
 # ─────────────────────────────────────────
-# INICIA CHROME
+# INICIA CHROME COM SESSÃO SALVA
 # ─────────────────────────────────────────
 def iniciar_driver():
     chromedriver_path = chromedriver_autoinstaller.install()
@@ -46,147 +45,29 @@ def iniciar_driver():
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-notifications")
     options.add_argument("--window-size=1920,1080")
-    print("[INFO] Modo headless ativado")
+    options.add_argument(f"--user-data-dir={PASTA_SESSAO}")
+    options.add_argument("--profile-directory=Default")
+    print(f"[INFO] Usando sessão: {PASTA_SESSAO}")
 
     service = Service(chromedriver_path)
     driver = webdriver.Chrome(service=service, options=options)
     return driver
 
 # ─────────────────────────────────────────
-# SALVA COOKIES EM ARQUIVO
-# ─────────────────────────────────────────
-def salvar_cookies(driver):
-    cookies = driver.get_cookies()
-    with open(ARQUIVO_COOKIES, "w") as f:
-        json.dump(cookies, f)
-    print(f"[INFO] {len(cookies)} cookies salvos em '{ARQUIVO_COOKIES}'")
-
-# ─────────────────────────────────────────
-# CARREGA COOKIES DO ARQUIVO
-# ─────────────────────────────────────────
-def carregar_cookies(driver):
-    if not os.path.exists(ARQUIVO_COOKIES):
-        print("[INFO] Nenhum cookie salvo encontrado.")
-        return False
-    try:
-        with open(ARQUIVO_COOKIES, "r") as f:
-            cookies = json.load(f)
-        # Abre o domínio primeiro antes de injetar cookies
-        driver.get("https://web.whatsapp.com")
-        time.sleep(3)
-        for cookie in cookies:
-            # Remove campos incompatíveis
-            cookie.pop("sameSite", None)
-            cookie.pop("expiry", None)
-            try:
-                driver.add_cookie(cookie)
-            except Exception:
-                pass
-        print(f"[INFO] {len(cookies)} cookies carregados.")
-        return True
-    except Exception as e:
-        print(f"[AVISO] Erro ao carregar cookies: {e}")
-        return False
-
-# ─────────────────────────────────────────
-# EXIBE QR CODE NO TERMINAL
-# ─────────────────────────────────────────
-def exibir_qrcode_terminal(driver):
-    try:
-        import qrcode
-        print("[INFO] Aguardando QR Code aparecer...")
-        WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located((By.XPATH, '//div[@data-ref]'))
-        )
-        qr_element = driver.find_element(By.XPATH, '//div[@data-ref]')
-        qr_data = qr_element.get_attribute("data-ref")
-        if not qr_data:
-            print("[ERRO] Não foi possível extrair o QR Code.")
-            return False
-
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=1,
-            border=1,
-        )
-        qr.add_data(qr_data)
-        qr.make(fit=True)
-
-        print("\n" + "=" * 50)
-        print("  ESCANEIE: WhatsApp → 3 pontos → Aparelhos conectados → Conectar")
-        print("=" * 50)
-        matrix = qr.get_matrix()
-        for row in matrix:
-            linha = ""
-            for cell in row:
-                linha += "██" if cell else "  "
-            print(linha)
-        print("=" * 50)
-        print("[INFO] Aguardando escaneamento (máx. 120 segundos)...")
-        return True
-    except Exception as e:
-        print(f"[ERRO] ao exibir QR Code: {e}")
-        return False
-
-# ─────────────────────────────────────────
-# ABRE O WHATSAPP WEB E AGUARDA LOGIN
+# ABRE O WHATSAPP WEB
 # ─────────────────────────────────────────
 def abrir_whatsapp(driver):
-    print("[INFO] Carregando WhatsApp Web...")
-
-    # Tenta usar cookies salvos primeiro
-    tem_cookies = carregar_cookies(driver)
-
-    if tem_cookies:
-        # Recarrega a página com os cookies injetados
-        driver.get("https://web.whatsapp.com")
-        print("[INFO] Cookies carregados — verificando sessão...")
-        try:
-            WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
-            )
-            print("[✓] Sessão restaurada pelos cookies!")
-            return
-        except TimeoutException:
-            print("[AVISO] Cookies inválidos ou expirados — pedindo novo QR Code...")
-
-    # Sem cookies ou cookies inválidos — exibe QR Code
     driver.get("https://web.whatsapp.com")
-    time.sleep(5)
-
-    # Verifica se já está logado sem cookies
+    print("[INFO] Carregando WhatsApp Web...")
     try:
-        WebDriverWait(driver, 10).until(
+        WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
         )
-        print("[✓] Já logado!")
-        salvar_cookies(driver)
-        return
+        print("[✓] WhatsApp Web carregado com sessão salva!")
     except TimeoutException:
-        pass
-
-    # Exibe QR Code e aguarda login
-    if not exibir_qrcode_terminal(driver):
+        print("[ERRO] Sessão expirada. Execute o workflow 'Login WhatsApp' para renovar.")
         driver.quit()
         sys.exit(1)
-
-    try:
-        WebDriverWait(driver, 120).until(
-            EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
-        )
-        print("[✓] Login realizado!")
-        salvar_cookies(driver)
-        print("[INFO] Cookies salvos — nas próximas execuções não precisará escanear.")
-        print("[AVISO] Faça commit do arquivo 'wa_cookies.json' para o GitHub!")
-    except TimeoutException:
-        print("[AVISO] QR Code expirou, tentando novamente...")
-        exibir_qrcode_terminal(driver)
-        WebDriverWait(driver, 120).until(
-            EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
-        )
-        print("[✓] Login realizado!")
-        salvar_cookies(driver)
 
 # ─────────────────────────────────────────
 # ABRE O GRUPO
