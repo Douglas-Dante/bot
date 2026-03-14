@@ -1,0 +1,38 @@
+name: WhatsApp Bot
+
+on:
+  workflow_dispatch:       # disparo manual pelo botão no GitHub
+  push:
+    branches: [ main ]     # também inicia ao fazer push na main
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360   # roda por até 6 horas
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v3
+
+      - name: Instalar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependências Python
+        run: pip install -r requirements.txt
+
+      - name: Instalar Google Chrome
+        run: |
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Instalar ChromeDriver compatível
+        run: |
+          pip install webdriver-manager
+          python -c "from webdriver_manager.chrome import ChromeDriverManager; ChromeDriverManager().install()"
+
+      - name: Rodar o bot
+        run: python novo.py
