@@ -12,14 +12,9 @@ jobs:
     env:
       PYTHONUNBUFFERED: "1"
 
-    permissions:
-      contents: write   # permite fazer commit de volta ao repositório
-
     steps:
       - name: Checkout do repositório
         uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Instalar Python
         uses: actions/setup-python@v4
@@ -34,22 +29,5 @@ jobs:
       - name: Instalar dependências
         run: pip install selenium chromedriver-autoinstaller "qrcode[pil]"
 
-      - name: Configurar Git para auto-commit
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
       - name: Rodar o bot
         run: python -u novo.py
-
-      - name: Salvar cookies no repositório (se foram gerados)
-        if: always()
-        run: |
-          if [ -f wa_cookies.json ]; then
-            git add wa_cookies.json
-            git diff --staged --quiet || git commit -m "chore: atualizar cookies WhatsApp [skip ci]"
-            git push
-            echo "[✓] wa_cookies.json commitado com sucesso!"
-          else
-            echo "[INFO] Nenhum cookie novo para salvar."
-          fi
