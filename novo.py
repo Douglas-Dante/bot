@@ -3,6 +3,7 @@ import os
 import sys
 import chromedriver_autoinstaller
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
@@ -35,28 +36,38 @@ def carregar_contatos():
 # INICIA CHROME
 # ─────────────────────────────────────────
 def iniciar_driver():
-    chromedriver_autoinstaller.install()  # instala ChromeDriver compatível com o Chrome instalado
+    chromedriver_path = chromedriver_autoinstaller.install()
+    print(f"[INFO] ChromeDriver: {chromedriver_path}")
 
     options = webdriver.ChromeOptions()
-    options.add_argument(f"--user-data-dir={PASTA_SESSAO}")
-    options.add_argument("--profile-directory=Default")
+
+    # Flags obrigatórias para rodar no Linux/GitHub Actions
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--disable-software-rasterizer")
+    options.add_argument("--disable-extensions")
     options.add_argument("--disable-notifications")
     options.add_argument("--window-size=1920,1080")
-    options.add_experimental_option("excludeSwitches", ["enable-logging", "enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
-    options.add_argument("--log-level=3")
-    options.add_argument("--disable-logging")
-    options.add_argument("--silent")
+    options.add_argument("--remote-debugging-port=9222")
 
     if not MODO_LOGIN:
         options.add_argument("--headless=new")
+        # Sessão salva — só usa se a pasta existir
+        if os.path.exists(PASTA_SESSAO):
+            options.add_argument(f"--user-data-dir={PASTA_SESSAO}")
+            options.add_argument("--profile-directory=Default")
+            print(f"[INFO] Usando sessão salva em: {PASTA_SESSAO}")
+        else:
+            print("[AVISO] Pasta chrome_session/ não encontrada — rodando sem sessão salva.")
         print("[INFO] Modo headless ativado (sem interface gráfica)")
     else:
+        options.add_argument(f"--user-data-dir={PASTA_SESSAO}")
+        options.add_argument("--profile-directory=Default")
         print("[INFO] Modo login ativado (com interface gráfica para QR Code)")
 
-    driver = webdriver.Chrome(options=options)  # autoinstaller cuida do ChromeDriver
+    service = Service(chromedriver_path)
+    driver = webdriver.Chrome(service=service, options=options)
     return driver
 
 # ─────────────────────────────────────────
@@ -74,7 +85,6 @@ def abrir_whatsapp(driver):
                 EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
             )
             print("[✓] Login realizado! Sessão salva em 'chrome_session/'")
-            print("[✓] Agora você pode rodar sem --login no GitHub Actions.")
             time.sleep(3)
         except TimeoutException:
             print("[ERRO] Tempo esgotado. Tente novamente com: python novo.py --login")
@@ -152,28 +162,24 @@ def aguardar_nova_mensagem(driver, contatos, ultima_id):
 # ─────────────────────────────────────────
 def responder_com_reply(driver, elemento_mensagem):
     try:
-        # ── 1: Scroll para centralizar a mensagem ──
         driver.execute_script(
             "arguments[0].scrollIntoView({block: 'center'});",
             elemento_mensagem
         )
         time.sleep(0.2)
 
-        # ── 2: Hover físico no div._am2m para revelar a seta ──
         div_nome = elemento_mensagem.find_element(
             By.XPATH, './/div[contains(@class,"_am2m")]'
         )
         ActionChains(driver).move_to_element(div_nome).perform()
         time.sleep(0.6)
 
-        # ── 3: Clica na seta via JS ──
         seta = elemento_mensagem.find_element(
             By.XPATH, './/span[@data-icon="ic-chevron-down-menu"]'
         )
         driver.execute_script("arguments[0].click();", seta)
         time.sleep(0.4)
 
-        # ── 4: Clica em Reply via JS ──
         btn_reply = WebDriverWait(driver, 5).until(
             EC.presence_of_element_located((
                 By.XPATH, '//span[@data-icon="reply-refreshed"]'
@@ -182,7 +188,6 @@ def responder_com_reply(driver, elemento_mensagem):
         driver.execute_script("arguments[0].click();", btn_reply)
         time.sleep(0.4)
 
-        # ── 5: Foca na caixa de texto do footer ──
         caixa = WebDriverWait(driver, 5).until(
             EC.presence_of_element_located((
                 By.XPATH, "//footer//div[@contenteditable='true']"
@@ -191,7 +196,6 @@ def responder_com_reply(driver, elemento_mensagem):
         driver.execute_script("arguments[0].focus();", caixa)
         time.sleep(0.1)
 
-        # ── 6: Limpa, digita "Eu" e envia ──
         caixa.send_keys(Keys.CONTROL + "a")
         caixa.send_keys(Keys.DELETE)
         caixa.send_keys("Eu")
@@ -215,14 +219,14 @@ def main():
 
     contatos = carregar_contatos()
     if not contatos and not MODO_LOGIN:
-        print("[ERRO] Nenhum contato para monitorar. Adicione nomes em 'contatos.txt' e reinicie.")
+        print("[ERRO] Nenhum contato para monitorar.")
         return
 
     driver = iniciar_driver()
     abrir_whatsapp(driver)
 
     if MODO_LOGIN:
-        print("[✓] Sessão salva! Feche esta janela e suba chrome_session/ para o GitHub.")
+        print("[✓] Sessão salva! Suba chrome_session/ para o GitHub.")
         driver.quit()
         return
 
