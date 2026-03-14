@@ -1,0 +1,1 @@
+[{"domain": ".web.whatsapp.com", "expiry": 1781298936, "httpOnly": true, "name": "wa_ul", "path": "/", "sameSite": "Lax", "secure": true, "value": "a001c70e-e444-4a19-bad6-f09950f9a377"}, {"domain": ".web.whatsapp.com", "expiry": 1775942186, "httpOnly": false, "name": "wa_web_lang_pref", "path": "/", "sameSite": "Lax", "secure": true, "value": "pt_BR"}]
