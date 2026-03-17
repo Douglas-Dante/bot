@@ -1,2 +1,3 @@
-2026/03/14-21:26:28.814 aac Creating DB /home/runner/work/bot/bot/chrome_session/Default/Site Characteristics Database since it was missing.
-2026/03/14-21:26:28.817 aac Reusing MANIFEST /home/runner/work/bot/bot/chrome_session/Default/Site Characteristics Database/MANIFEST-000001
+2026/03/17-00:48:01.369 ab0 Reusing MANIFEST /home/runner/work/bot/bot/chrome_session/Default/Site Characteristics Database/MANIFEST-000001
+2026/03/17-00:48:01.470 ab0 Recovering log #3
+2026/03/17-00:48:01.470 ab0 Reusing old log /home/runner/work/bot/bot/chrome_session/Default/Site Characteristics Database/000003.log 

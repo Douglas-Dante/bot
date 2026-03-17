@@ -1,0 +1,32 @@
+2026/03/14-21:26:30.483 aa0 Creating DB /home/runner/work/bot/bot/chrome_session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb since it was missing.
+2026/03/14-21:26:30.484 aa0 Reusing MANIFEST /home/runner/work/bot/bot/chrome_session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/03/14-21:27:29.196 aa1 Level-0 table #5: started
+2026/03/14-21:27:29.220 aa1 Level-0 table #5: 1022227 bytes OK
+2026/03/14-21:27:29.222 aa1 Delete type=0 #3
+2026/03/14-21:27:30.534 aa1 Level-0 table #7: started
+2026/03/14-21:27:30.552 aa1 Level-0 table #7: 1183620 bytes OK
+2026/03/14-21:27:30.553 aa1 Delete type=0 #4
+2026/03/14-21:27:30.555 aa1 Compacting 1@1 + 1@2 files
+2026/03/14-21:27:30.602 aa1 Generated table #8@1: 24065 keys, 1213347 bytes
+2026/03/14-21:27:30.602 aa1 Compacted 1@1 + 1@2 files => 1213347 bytes
+2026/03/14-21:27:30.602 aa1 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/03/14-21:27:31.238 aa1 Level-0 table #10: started
+2026/03/14-21:27:31.254 aa1 Level-0 table #10: 970659 bytes OK
+2026/03/14-21:27:31.254 aa1 Delete type=0 #6
+2026/03/14-21:27:31.255 aa1 Delete type=2 #7
+2026/03/14-21:27:31.255 aa1 Delete type=2 #5
+2026/03/14-21:27:31.256 aa1 Compacting 1@1 + 1@2 files
+2026/03/14-21:27:31.294 aa1 Generated table #11@1: 37162 keys, 1729128 bytes
+2026/03/14-21:27:31.295 aa1 Compacted 1@1 + 1@2 files => 1729128 bytes
+2026/03/14-21:27:31.295 aa1 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/03/14-21:27:33.055 aa1 Level-0 table #13: started
+2026/03/14-21:27:33.075 aa1 Level-0 table #13: 1060799 bytes OK
+2026/03/14-21:27:33.077 aa1 Delete type=0 #9
+2026/03/14-21:27:33.077 aa1 Delete type=2 #8
+2026/03/14-21:27:33.077 aa1 Delete type=2 #10
+2026/03/14-21:27:33.079 aa1 Compacting 1@1 + 1@2 files
+2026/03/14-21:27:33.127 aa1 Generated table #14@1: 44092 keys, 2175457 bytes
+2026/03/14-21:27:33.127 aa1 Compacted 1@1 + 1@2 files => 2175457 bytes
+2026/03/14-21:27:33.128 aa1 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/03/14-21:27:33.128 aa1 Delete type=2 #11
+2026/03/14-21:27:33.128 aa1 Delete type=2 #13
