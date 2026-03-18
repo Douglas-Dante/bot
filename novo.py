@@ -11,16 +11,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
-# ─────────────────────────────────────────
-# CONFIGURAÇÕES
-# ─────────────────────────────────────────
 NOME_GRUPO = "FLASH DELIVERY JIPA 2"
 ARQUIVO_CONTATOS = "contatos.txt"
 PASTA_SESSAO = os.path.join(os.path.dirname(__file__), "chrome_session")
 
-# ─────────────────────────────────────────
-# CARREGA CONTATOS MONITORADOS
-# ─────────────────────────────────────────
 def carregar_contatos():
     if not os.path.exists(ARQUIVO_CONTATOS):
         print(f"[AVISO] Arquivo '{ARQUIVO_CONTATOS}' não encontrado.")
@@ -30,13 +24,8 @@ def carregar_contatos():
     print(f"[INFO] {len(contatos)} contatos monitorados.")
     return contatos
 
-# ─────────────────────────────────────────
-# INICIA CHROME COM SESSÃO SALVA
-# ─────────────────────────────────────────
 def iniciar_driver():
     chromedriver_path = chromedriver_autoinstaller.install()
-    print(f"[INFO] ChromeDriver: {chromedriver_path}")
-
     options = webdriver.ChromeOptions()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
@@ -47,15 +36,10 @@ def iniciar_driver():
     options.add_argument("--window-size=1920,1080")
     options.add_argument(f"--user-data-dir={PASTA_SESSAO}")
     options.add_argument("--profile-directory=Default")
-    print(f"[INFO] Usando sessão: {PASTA_SESSAO}")
-
     service = Service(chromedriver_path)
     driver = webdriver.Chrome(service=service, options=options)
     return driver
 
-# ─────────────────────────────────────────
-# ABRE O WHATSAPP WEB
-# ─────────────────────────────────────────
 def abrir_whatsapp(driver):
     driver.get("https://web.whatsapp.com")
     print("[INFO] Carregando WhatsApp Web...")
@@ -63,15 +47,12 @@ def abrir_whatsapp(driver):
         WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
         )
-        print("[✓] WhatsApp Web carregado com sessão salva!")
+        print("[✓] WhatsApp Web carregado!")
     except TimeoutException:
         print("[ERRO] Sessão expirada. Execute o workflow 'Login WhatsApp' para renovar.")
         driver.quit()
         sys.exit(1)
 
-# ─────────────────────────────────────────
-# ABRE O GRUPO
-# ─────────────────────────────────────────
 def abrir_grupo(driver, nome_grupo):
     print(f"[INFO] Procurando grupo: {nome_grupo}")
     try:
@@ -94,43 +75,6 @@ def abrir_grupo(driver, nome_grupo):
         print(f"[ERRO] Grupo '{nome_grupo}' não encontrado!")
         return False
 
-# ─────────────────────────────────────────
-# PEGA A ÚLTIMA MENSAGEM DO GRUPO
-# ─────────────────────────────────────────
-def pegar_ultima_mensagem(driver):
-    try:
-        mensagens = driver.find_elements(By.XPATH, '//div[contains(@class,"message-in")]')
-        if not mensagens:
-            return None, None
-        ultima = mensagens[-1]
-        try:
-            remetente = ultima.find_element(
-                By.XPATH, './/span[contains(@class,"_ahxt")]'
-            ).text.strip()
-        except NoSuchElementException:
-            remetente = ""
-        return remetente, ultima
-    except Exception as e:
-        print(f"[ERRO] ao pegar mensagem: {e}")
-        return None, None
-
-# ─────────────────────────────────────────
-# DEBUG: imprime o HTML da mensagem
-# para identificar os seletores corretos
-# ─────────────────────────────────────────
-def debug_html_mensagem(driver, elemento):
-    try:
-        html = elemento.get_attribute("outerHTML")
-        # Imprime só os primeiros 3000 chars para não poluir o log
-        print("\n[DEBUG HTML DA MENSAGEM]\n")
-        print(html[:3000])
-        print("\n[FIM DEBUG]\n")
-    except Exception as e:
-        print(f"[DEBUG ERRO] {e}")
-
-# ─────────────────────────────────────────
-# AGUARDA NOVA MENSAGEM DE UM CONTATO
-# ─────────────────────────────────────────
 def aguardar_nova_mensagem(driver, contatos, ultima_id):
     print("[BOT] Aguardando nova mensagem...\n")
     while True:
@@ -152,91 +96,80 @@ def aguardar_nova_mensagem(driver, contatos, ultima_id):
             print(f"[ERRO] ao monitorar: {e}")
         time.sleep(2)
 
-# ─────────────────────────────────────────
-# RESPONDE COM REPLY
-# ─────────────────────────────────────────
 def responder_com_reply(driver, elemento_mensagem):
     try:
-        # ── 1: Scroll ──
+        # ── 1: Scroll para a mensagem ──
         driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", elemento_mensagem)
         time.sleep(0.3)
 
-        # ── 2: Imprime HTML para debug (identifica seletores no Linux) ──
-        debug_html_mensagem(driver, elemento_mensagem)
+        # ── 2: Hover via JS no elemento da mensagem ──
+        driver.execute_script("""
+            var el = arguments[0];
+            el.dispatchEvent(new MouseEvent('mouseover', {bubbles: true, cancelable: true}));
+            el.dispatchEvent(new MouseEvent('mouseenter', {bubbles: true, cancelable: true}));
+            el.dispatchEvent(new MouseEvent('mousemove', {bubbles: true, cancelable: true}));
+        """, elemento_mensagem)
+        time.sleep(1.0)
 
-        # ── 3: Hover no container da mensagem para revelar a seta ──
-        # Tenta _am2m primeiro, depois fallback para o próprio elemento
-        try:
-            alvo_hover = elemento_mensagem.find_element(
-                By.XPATH, './/*[contains(@class,"_am2m") or contains(@class,"copyable-area") or contains(@class,"message-in")]'
-            )
-        except NoSuchElementException:
-            alvo_hover = elemento_mensagem
-
-        ActionChains(driver).move_to_element(alvo_hover).perform()
-        time.sleep(0.8)
-
-        # ── 4: Clica na seta (tenta múltiplos seletores) ──
+        # ── 3: Busca a seta no container pai (_amj_) ──
         seta = None
-        for xpath in [
-            './/span[@data-icon="ic-chevron-down-menu"]',
-            './/span[@data-icon="down-context"]',
-            './/button[contains(@aria-label,"Menu")]',
-        ]:
-            try:
-                seta = elemento_mensagem.find_element(By.XPATH, xpath)
-                print(f"[INFO] Seta encontrada com: {xpath}")
-                break
-            except NoSuchElementException:
-                continue
+        try:
+            # A seta fica no container externo, não dentro da mensagem
+            container = elemento_mensagem.find_element(By.XPATH, './ancestor::div[contains(@class,"focusable-list-item")]')
+            seta = container.find_element(By.XPATH, './/span[@data-icon="ic-chevron-down-menu"]')
+            print("[INFO] Seta encontrada no container pai")
+        except Exception:
+            pass
 
         if seta is None:
-            # Fallback: busca globalmente a seta mais recente
-            for xpath in [
-                '//span[@data-icon="ic-chevron-down-menu"]',
-                '//span[@data-icon="down-context"]',
-            ]:
-                try:
-                    setas = driver.find_elements(By.XPATH, xpath)
-                    if setas:
-                        seta = setas[-1]
-                        print(f"[INFO] Seta encontrada globalmente: {xpath}")
-                        break
-                except Exception:
-                    continue
+            # Fallback: busca global pela última seta visível
+            setas = driver.find_elements(By.XPATH, '//span[@data-icon="ic-chevron-down-menu"]')
+            if setas:
+                seta = setas[-1]
+                print("[INFO] Seta encontrada globalmente")
 
         if seta is None:
-            print("[ERRO] Seta do menu não encontrada em nenhum seletor.")
+            print("[ERRO] Seta não encontrada.")
             return False
 
         driver.execute_script("arguments[0].click();", seta)
-        time.sleep(0.5)
+        time.sleep(0.6)
 
-        # ── 5: Clica em Reply ──
+        # ── 4: Clica em Responder — tenta vários seletores ──
         btn_reply = None
-        for xpath in [
+        xpaths_reply = [
             '//span[@data-icon="reply-refreshed"]',
             '//span[@data-icon="reply"]',
-            '//li[.//span[text()="Responder"]]',
-            '//li[.//span[text()="Reply"]]',
-        ]:
+            '//*[contains(@aria-label,"Reply")]',
+            '//*[contains(@aria-label,"Responder")]',
+            '//li[.//span[normalize-space()="Responder"]]',
+            '//li[.//span[normalize-space()="Reply"]]',
+            '//div[contains(@class,"_amj_")]//span[contains(@data-icon,"reply")]',
+        ]
+        for xpath in xpaths_reply:
             try:
-                btn_reply = WebDriverWait(driver, 4).until(
+                btn_reply = WebDriverWait(driver, 2).until(
                     EC.presence_of_element_located((By.XPATH, xpath))
                 )
-                print(f"[INFO] Botão reply encontrado: {xpath}")
+                print(f"[INFO] Reply encontrado: {xpath}")
                 break
             except TimeoutException:
                 continue
 
         if btn_reply is None:
+            # Último recurso: imprime o HTML do menu aberto para debug
+            try:
+                menu = driver.find_element(By.XPATH, '//ul[contains(@class,"_amj") or @role="menu"]')
+                print(f"[DEBUG MENU] {menu.get_attribute('outerHTML')[:1000]}")
+            except Exception:
+                pass
             print("[ERRO] Botão reply não encontrado.")
             return False
 
         driver.execute_script("arguments[0].click();", btn_reply)
         time.sleep(0.4)
 
-        # ── 6: Digita "Eu" e envia ──
+        # ── 5: Digita "Eu" e envia ──
         caixa = WebDriverWait(driver, 5).until(
             EC.presence_of_element_located((By.XPATH, "//footer//div[@contenteditable='true']"))
         )
@@ -254,9 +187,6 @@ def responder_com_reply(driver, elemento_mensagem):
         print(f"[ERRO] Falha ao responder: {e}")
         return False
 
-# ─────────────────────────────────────────
-# LOOP PRINCIPAL
-# ─────────────────────────────────────────
 def main():
     contatos = carregar_contatos()
     if not contatos:
