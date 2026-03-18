@@ -1,2 +1,3 @@
-2026/03/14-21:26:29.057 aa1 Creating DB /home/runner/work/bot/bot/chrome_session/Default/shared_proto_db since it was missing.
-2026/03/14-21:26:29.059 aa1 Reusing MANIFEST /home/runner/work/bot/bot/chrome_session/Default/shared_proto_db/MANIFEST-000001
+2026/03/17-00:48:02.787 aa6 Reusing MANIFEST /home/runner/work/bot/bot/chrome_session/Default/shared_proto_db/MANIFEST-000001
+2026/03/17-00:48:02.787 aa6 Recovering log #3
+2026/03/17-00:48:02.787 aa6 Reusing old log /home/runner/work/bot/bot/chrome_session/Default/shared_proto_db/000003.log 

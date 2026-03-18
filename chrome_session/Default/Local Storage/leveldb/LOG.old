@@ -1,2 +1,3 @@
-2026/03/14-21:26:28.824 ac6 Creating DB /home/runner/work/bot/bot/chrome_session/Default/Local Storage/leveldb since it was missing.
-2026/03/14-21:26:28.833 ac6 Reusing MANIFEST /home/runner/work/bot/bot/chrome_session/Default/Local Storage/leveldb/MANIFEST-000001
+2026/03/17-00:48:01.354 acc Reusing MANIFEST /home/runner/work/bot/bot/chrome_session/Default/Local Storage/leveldb/MANIFEST-000001
+2026/03/17-00:48:01.476 acc Recovering log #3
+2026/03/17-00:48:01.477 acc Reusing old log /home/runner/work/bot/bot/chrome_session/Default/Local Storage/leveldb/000003.log 
