@@ -95,6 +95,40 @@ def abrir_grupo(driver, nome_grupo):
         return False
 
 # ─────────────────────────────────────────
+# PEGA A ÚLTIMA MENSAGEM DO GRUPO
+# ─────────────────────────────────────────
+def pegar_ultima_mensagem(driver):
+    try:
+        mensagens = driver.find_elements(By.XPATH, '//div[contains(@class,"message-in")]')
+        if not mensagens:
+            return None, None
+        ultima = mensagens[-1]
+        try:
+            remetente = ultima.find_element(
+                By.XPATH, './/span[contains(@class,"_ahxt")]'
+            ).text.strip()
+        except NoSuchElementException:
+            remetente = ""
+        return remetente, ultima
+    except Exception as e:
+        print(f"[ERRO] ao pegar mensagem: {e}")
+        return None, None
+
+# ─────────────────────────────────────────
+# DEBUG: imprime o HTML da mensagem
+# para identificar os seletores corretos
+# ─────────────────────────────────────────
+def debug_html_mensagem(driver, elemento):
+    try:
+        html = elemento.get_attribute("outerHTML")
+        # Imprime só os primeiros 3000 chars para não poluir o log
+        print("\n[DEBUG HTML DA MENSAGEM]\n")
+        print(html[:3000])
+        print("\n[FIM DEBUG]\n")
+    except Exception as e:
+        print(f"[DEBUG ERRO] {e}")
+
+# ─────────────────────────────────────────
 # AGUARDA NOVA MENSAGEM DE UM CONTATO
 # ─────────────────────────────────────────
 def aguardar_nova_mensagem(driver, contatos, ultima_id):
@@ -123,19 +157,86 @@ def aguardar_nova_mensagem(driver, contatos, ultima_id):
 # ─────────────────────────────────────────
 def responder_com_reply(driver, elemento_mensagem):
     try:
+        # ── 1: Scroll ──
         driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", elemento_mensagem)
-        time.sleep(0.2)
-        div_nome = elemento_mensagem.find_element(By.XPATH, './/div[contains(@class,"_am2m")]')
-        ActionChains(driver).move_to_element(div_nome).perform()
-        time.sleep(0.6)
-        seta = elemento_mensagem.find_element(By.XPATH, './/span[@data-icon="ic-chevron-down-menu"]')
+        time.sleep(0.3)
+
+        # ── 2: Imprime HTML para debug (identifica seletores no Linux) ──
+        debug_html_mensagem(driver, elemento_mensagem)
+
+        # ── 3: Hover no container da mensagem para revelar a seta ──
+        # Tenta _am2m primeiro, depois fallback para o próprio elemento
+        try:
+            alvo_hover = elemento_mensagem.find_element(
+                By.XPATH, './/*[contains(@class,"_am2m") or contains(@class,"copyable-area") or contains(@class,"message-in")]'
+            )
+        except NoSuchElementException:
+            alvo_hover = elemento_mensagem
+
+        ActionChains(driver).move_to_element(alvo_hover).perform()
+        time.sleep(0.8)
+
+        # ── 4: Clica na seta (tenta múltiplos seletores) ──
+        seta = None
+        for xpath in [
+            './/span[@data-icon="ic-chevron-down-menu"]',
+            './/span[@data-icon="down-context"]',
+            './/button[contains(@aria-label,"Menu")]',
+        ]:
+            try:
+                seta = elemento_mensagem.find_element(By.XPATH, xpath)
+                print(f"[INFO] Seta encontrada com: {xpath}")
+                break
+            except NoSuchElementException:
+                continue
+
+        if seta is None:
+            # Fallback: busca globalmente a seta mais recente
+            for xpath in [
+                '//span[@data-icon="ic-chevron-down-menu"]',
+                '//span[@data-icon="down-context"]',
+            ]:
+                try:
+                    setas = driver.find_elements(By.XPATH, xpath)
+                    if setas:
+                        seta = setas[-1]
+                        print(f"[INFO] Seta encontrada globalmente: {xpath}")
+                        break
+                except Exception:
+                    continue
+
+        if seta is None:
+            print("[ERRO] Seta do menu não encontrada em nenhum seletor.")
+            return False
+
         driver.execute_script("arguments[0].click();", seta)
-        time.sleep(0.4)
-        btn_reply = WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.XPATH, '//span[@data-icon="reply-refreshed"]'))
-        )
+        time.sleep(0.5)
+
+        # ── 5: Clica em Reply ──
+        btn_reply = None
+        for xpath in [
+            '//span[@data-icon="reply-refreshed"]',
+            '//span[@data-icon="reply"]',
+            '//li[.//span[text()="Responder"]]',
+            '//li[.//span[text()="Reply"]]',
+        ]:
+            try:
+                btn_reply = WebDriverWait(driver, 4).until(
+                    EC.presence_of_element_located((By.XPATH, xpath))
+                )
+                print(f"[INFO] Botão reply encontrado: {xpath}")
+                break
+            except TimeoutException:
+                continue
+
+        if btn_reply is None:
+            print("[ERRO] Botão reply não encontrado.")
+            return False
+
         driver.execute_script("arguments[0].click();", btn_reply)
         time.sleep(0.4)
+
+        # ── 6: Digita "Eu" e envia ──
         caixa = WebDriverWait(driver, 5).until(
             EC.presence_of_element_located((By.XPATH, "//footer//div[@contenteditable='true']"))
         )
@@ -145,8 +246,10 @@ def responder_com_reply(driver, elemento_mensagem):
         caixa.send_keys(Keys.DELETE)
         caixa.send_keys("Eu")
         caixa.send_keys(Keys.ENTER)
+
         print("[✓] 'Eu' enviado via reply!")
         return True
+
     except Exception as e:
         print(f"[ERRO] Falha ao responder: {e}")
         return False
