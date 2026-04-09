@@ -70,7 +70,7 @@ def abrir_whatsapp(driver):
     try:
         WebDriverWait(driver, 30).until(
             EC.presence_of_element_located(
-                (By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]')
+                (By.XPATH, '//div[@contenteditable="true"]')
             )
         )
         print("[INFO] WhatsApp Web carregado com sessão salva!")
@@ -88,7 +88,7 @@ def abrir_grupo(driver, nome_grupo):
     try:
         search = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable(
-                (By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]')
+                (By.XPATH, '//div[@contenteditable="true"]')
             )
         )
         search.click()
